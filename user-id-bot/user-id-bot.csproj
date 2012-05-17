@@ -9,7 +9,7 @@
     <OutputType>Exe</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>user_id_bot</RootNamespace>
-    <AssemblyName>ConsoleApplication1</AssemblyName>
+    <AssemblyName>user-id-bot</AssemblyName>
     <FileAlignment>512</FileAlignment>
     <newfilesearch>OnLoad</newfilesearch>
     <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>

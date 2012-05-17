@@ -9,10 +9,8 @@ using HtmlAgilityPack;
 using System.IO;
 
 
-namespace ConsoleApplication1
+namespace user_id_bot
 {
-
-    
 
     public class Film
     {
@@ -52,25 +50,11 @@ namespace ConsoleApplication1
             get { return hodnoceni; }
         }
 
-
     }
 
     class Program
     {
-
-        /// <summary>
-        /// Returns the content of a given web adress as string.
-        /// </summary>
-        /// <param name="Url">URL of the webpage</param>
-        /// <returns>Website content</returns>
-
         const string web = "http://www.csfd.cz";
-
-        WebProxy wp = new WebProxy("210.101.131.232", 8080);
-        
-        const string proxy_list = "http://hidemyass.com/proxy-list/";
-
-
 
         private static string get_page(string url)
         {
@@ -89,185 +73,97 @@ namespace ConsoleApplication1
             }
             return result;
         }
+		
         static void Main(string[] args)
         {
-
-
-   /*         string[] proxys = new string[14]{"210.101.131.232","189.114.111.190","95.215.48.134","180.96.19.196","66.90.146.51","116.55.19.96","187.60.96.7","83.91.86.26","93.167.245.178","164.77.196.75",
-                "187.60.96.7","80.64.168.217","112.65.219.72","61.134.121.237"};
-
-            int[] ports = new int[14] { 8080, 8080, 8080, 3128, 1021, 808, 3128, 9100, 9100, 80, 3128, 8080, 80, 80 };
-            */
-            int idu = 340000;
-       
-            
-            //int idprox = 0;
-
             string host = "";
             int port = 0;
-
-
-            for (int strana = 3400; strana > 1000; --strana)
-            {
-                string url_strany = web + "/uzivatele/prehled/strana-" + strana.ToString() + "/";
-                Console.WriteLine("strana " + strana.ToString());
-
-
-          /*      try
-                {*/
-
-                    List<string> uziv = vysekej_adresy_uzivatelu(url_strany, host, port);
-
-
-                    for (int i = 0; i < uziv.Count; ++i)
-                    {
-                        try
-                        {
-                            if (idu < 340001)   //tady si muzes nastavit, ktereho uzivatele jsi stahl naposledy
-                            {
-
-                                if (idu % 30 == 0)
-                                {
-                                    host = "";
-                                    port = 0;
-                                }
-
-
-                                Console.WriteLine("zpracovavam uzivatele " + idu.ToString());
-
-                                List<Film> filmy = new List<Film>();
-                                string url_hodnoceni = web + uziv[i] + "hodnoceni/";
-
-                                List<string> adresy = vycuc_stranky(url_hodnoceni, host, port);
-                                foreach (string adresa in adresy)
-                                {
-
-                                    rozparsuj(adresa, filmy, host, port);
-                                }
-                                string path = "./data/uziv-" + idu.ToString() + ".txt";
-
-                                /*   if (File.Exists(@path))
-                                   {
-                                       File.Delete(@path);
-                                   } */
-                                StreamWriter writer = new StreamWriter(@path);
-
-
-                                foreach (Film f in filmy)
-                                {
-                                    writer.WriteLine(f.get_vse());
-                                }
-
-                                writer.Close();
-                            }
-                            idu--;
-                        }
-
-                        catch (Exception e)
-                        {
-                            ++i;
-                            Console.WriteLine(e.Message);
-                            System.Threading.Thread.Sleep(1000 * 60 * 5);   //vyjimka byva zpusobena tim, ze me nepusti na server, zkus to za 5 min znovu
-
-
-                            /*         if (host.Length > 0)      //nejake hnusne, neprilis funkcni, vyhledani proxy serveru...
-                                     {
-                                         host = "";
-                                         port = 0;
-                                     }
-                                     else
-                                     {
-                                         string prox = get_proxy(proxy_list);
-                                         string[] pol = prox.Split(':');
-                                         host = pol[0];
-                                         port = Convert.ToInt32(pol[1]);
-
-                                     }*/
-                        }
-                /*        if (idprox < 13)
-                        {
-                            ++idprox;
-                        }
-                        else
-                        {
-                            idprox = 0;
-                        }*/
-                    }
-           /*     }
-                catch (Exception e)
+			TextWriter output = System.Console.Out;
+			
+			/* get the last accessed user and page */
+			//TODO: get the last accessed user and page, from file
+				
+			/* parse users until number of their ratings drop below 100 */
+			for (int page = 1; /* condition intentionally left empty */ ; page++)
+			{
+				string pageUrl;
+				if (page == 1)
+				{
+					pageUrl = web + "/uzivatele/prehled/podle-rating/";
+				}
+				else
+				{
+                	pageUrl = web + "/uzivatele/prehled/podle-rating/strana-" + page.ToString() + "/";
+				}
+                output.WriteLine("Processing page " + page.ToString() + ".");
+				
+                List<string> users = null;
+				/* repeat until the request succeeds */
+                do
                 {
-                    Console.WriteLine(e.Message);
-                    System.Threading.Thread.Sleep(1000 * 60 * 5);
-                    strana++;
-                }*/
-            }
+                    try
+                    {
+                        users = getUsersURLs(pageUrl, host, port);
+                    }
+                    catch (Exception e)
+                    {
+                        output.WriteLine(e.Message);
+                        System.Threading.Thread.Sleep(1000 * 60 * 5);
+                    }
+                } while (users == null);			
 
-        }
-
-        /*  //nejake hnusne, neprilis funkcni, vyhledani proxy serveru...
-        private static string get_proxy(string url)
-        {
-            HtmlWeb htmlWeb = new HtmlWeb();
-
-            // Creates an HtmlDocument object from an URL
-            HtmlDocument document = htmlWeb.Load(url);
-
-
-
-            // Targets a specific node
-            HtmlNode tabulka = document.DocumentNode.SelectSingleNode(@"//table[@id=""listtable""]");
-            HtmlNodeCollection trs = tabulka.SelectNodes(@".//tr");
-
-            Random rand = new Random();
-            int i = rand.Next(10);
-            i += 2;
-            HtmlNode tr = trs[i];
-
-            string adresa = "";
-            HtmlNodeCollection tds = tr.SelectNodes(@".//td");
-            HtmlNode ip_ad = tds[1];
-            HtmlNodeCollection spans = ip_ad.SelectNodes(@".//span");
-            int poc = spans.Count;
-            for (int j = 1; j < poc; ++j)
-            {
-                HtmlNode sn = spans[j];
-                if (!sn.Attributes.Contains("style") || sn.Attributes["style"].Value != "display:none")
+				bool stopProcessing = false;
+                for (int i = 0; i < users.Count; ++i)
                 {
-                    string cislo = sn.InnerText;
-                    if (cislo == ".")
+                    try
                     {
-                        adresa += sn.InnerText;
-                    }
-                    else if (cislo.Length > 0 && cislo[0] == '.')
-                    {
-                        adresa += sn.InnerText;
-                    }
-                    else if (adresa.Length > 0 && adresa[adresa.Length - 1] == '.')
-                    {
-                        adresa += sn.InnerText;
-                    }
-                    else
-                    {
-                        if (adresa.Length > 0)
+						string userID = getUserID(users[i]);
+                        output.Write("Processing user " + userID);
+
+                        List<Film> movies = new List<Film>();
+                        string userReviewsBaseURL = web + users[i] + "hodnoceni/";
+
+                        List<string> reviewsPagesURL = getReviewsPagesURLs(userReviewsBaseURL, host, port);
+                        foreach (string reviewsURL in reviewsPagesURL)
                         {
-                            adresa += "." + sn.InnerText;
+                            getReviews(reviewsURL, movies, host, port);
+							output.Write('.');
                         }
-                        else
+						output.WriteLine(" finished.");
+						
+						/* ensure that the user reviewed at least 100 movies
+						 * otherwise stop processing since we process users by their reviews count */
+						if (movies.Count < 100)
+						{
+							stopProcessing = true;
+							break;
+						}
+
+						/* write results to file identified by userID */
+						string dataFile = "./data/" + userID + ".txt";
+                        StreamWriter writer = new StreamWriter(@dataFile);
+                        foreach (Film f in movies)
                         {
-                            adresa += sn.InnerText;
+                            writer.WriteLine(f.get_vse());
                         }
+                        writer.Close();
+                    }
+                    catch (Exception e)
+                    {
+                        output.WriteLine(e.Message);
+						//vyjimka byva zpusobena tim, ze me nepusti na server, zkus to za 5 min znovu
+                        System.Threading.Thread.Sleep(1000 * 60 * 5);
                     }
                 }
-            }
-            
-            HtmlNode port_n = tds[2];
-            string port = port_n.InnerText;
-            return adresa + ":" + port;
 
-        }   */
-
-
-        private static List<string> vysekej_adresy_uzivatelu(string url,string prox,int por)
+				if (stopProcessing)
+				{
+					break;
+				}
+			}
+		}
+		
+        private static List<string> getUsersURLs(string url,string prox,int por)
         {
             HtmlWeb htmlWeb = new HtmlWeb();
             
@@ -280,9 +176,7 @@ namespace ConsoleApplication1
             else
             {
                 document = htmlWeb.Load(url, prox, por, "", "");
-            }
-            
-            
+            }            
 
             // Targets a specific node
             HtmlNode tabulka = document.DocumentNode.SelectSingleNode(@"//table[@class=""ui-table-list""]");
@@ -292,7 +186,7 @@ namespace ConsoleApplication1
             {
                 HtmlNodeCollection tds = n.SelectNodes(@".//td");
                 int pocet = vysekej_pocet(tds);
-                if (pocet > 100)
+                if (pocet >= 100)
                 {
                     HtmlNode t = n.SelectSingleNode(@".//td[@class=""nick""]");
                     HtmlNode a = t.SelectSingleNode(@".//a");
@@ -301,8 +195,8 @@ namespace ConsoleApplication1
                 }
             }
             return adresy;
-
         }
+		
         private static int vysekej_pocet(HtmlNodeCollection ns)
         {
             if (ns.Count > 3)
@@ -328,20 +222,18 @@ namespace ConsoleApplication1
 
         }
 
-        private static List<string> vycuc_stranky(string url,string prox,int por)
+        private static List<string> getReviewsPagesURLs(string url, string host, int port)
         {
             HtmlWeb htmlWeb = new HtmlWeb();
 
-            // Creates an HtmlDocument object from an URL
-           // HtmlDocument document = htmlWeb.Load(url, prox, por, "", "");
             HtmlDocument document;
-            if (prox.Length == 0)
+            if (host.Length == 0)
             {
                 document = htmlWeb.Load(url);
             }
             else
             {
-                document = htmlWeb.Load(url, prox, por, "", "");
+                document = htmlWeb.Load(url, host, port, "", "");
             }
             HtmlNode d = document.DocumentNode.SelectSingleNode(@"//div[@class=""paginator text""]");
             HtmlNodeCollection stranky = d.SelectNodes(@".//a");
@@ -357,44 +249,36 @@ namespace ConsoleApplication1
                 string adr = url + "strana-" + i.ToString() + "/";
                 adresy.Add(adr);
             }
-
-            /*
-            foreach (HtmlNode n in stranky)
-            {
-                if (n.InnerText != "následující &gt;&gt;")
-                {
-                    adresy.Add(n.Attributes["href"].Value);
-                }
-            }*/
             return adresy;
         }
 
-        private static List<Film> rozparsuj(string url,List<Film> filmy,string prox,int por)
+		/*
+		 * userURL pattern: /uzivatel/121600-drsan40/
+		 */
+		private static string getUserID(string userURL)
+		{
+			string[] urlParts = userURL.Split('/');
+			return urlParts[2];		
+		}
+
+        private static void getReviews(string reviewsURL, List<Film> movies, string host, int port)
         {
 
             HtmlWeb htmlWeb = new HtmlWeb();
-
-            // Creates an HtmlDocument object from an URL
-           // HtmlDocument document = htmlWeb.Load(url_source,prox,por,"","");
-
             HtmlDocument document;
-            if (prox.Length == 0)
+            if (host.Length == 0)
             {
-                document = htmlWeb.Load(url);
+                document = htmlWeb.Load(reviewsURL);
             }
             else
             {
                 
-                document = htmlWeb.Load(url, prox, por, "", "");
+                document = htmlWeb.Load(reviewsURL, host, port, "", "");
             }
 
-            // Targets a specific node
+			
             HtmlNode tabulka = document.DocumentNode.SelectSingleNode(@"//table[@class=""ui-table-list""]");
-            HtmlNode telo = tabulka.SelectSingleNode(@"//tbody");
-
             HtmlNodeCollection trs =  tabulka.SelectNodes(@".//tr");
-
-
             for (int i = 0; i < trs.Count;i++ )
             {
                 HtmlNode n = trs[i];
@@ -419,12 +303,10 @@ namespace ConsoleApplication1
                 }
                 string rok = vysekej_rok(rok_n);
                 Film f = new Film(id, nazev, hodnoceni, rok);
-                filmy.Add(f);
-
-            }
-            return filmy;
-            
+                movies.Add(f);
+            }          
         }
+		
         private static int vysekej_hodnoceni(HtmlNode n)
         {
             int hodn = 0;
