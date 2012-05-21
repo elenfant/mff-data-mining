@@ -12,13 +12,13 @@ using System.IO;
 namespace user_id_bot
 {
 
-    public class Film
+    public class Movie
     {
         string id;
         string nazev;
         string rok;
         int hodnoceni;
-        public Film(string id, string nazev, int hodnoceni, string rok)
+        public Movie(string id, string nazev, int hodnoceni, string rok)
         {
             this.id = id;
             this.nazev = nazev;
@@ -51,12 +51,18 @@ namespace user_id_bot
         }
 
     }
-
-    class Program
-    {
+	
+	internal class Parser
+	{
         const string web = "http://www.csfd.cz";
+        string host = "";
+        int port = 0;
+		TextWriter output = System.Console.Out;
+		
+		/* get the last accessed user and page */
+		//TODO: get the last accessed user and page, from file
 
-        private static string get_page(string url)
+        private string get_page(string url)
         {
             
             string result = null;
@@ -74,15 +80,8 @@ namespace user_id_bot
             return result;
         }
 		
-        static void Main(string[] args)
-        {
-            string host = "";
-            int port = 0;
-			TextWriter output = System.Console.Out;
-			
-			/* get the last accessed user and page */
-			//TODO: get the last accessed user and page, from file
-				
+		public void parse()
+		{
 			/* parse users until number of their ratings drop below 100 */
 			for (int page = 1; /* condition intentionally left empty */ ; page++)
 			{
@@ -98,261 +97,282 @@ namespace user_id_bot
                 output.WriteLine("Processing page " + page.ToString() + ".");
 				
                 List<string> users = null;
-				/* repeat until the request succeeds */
-                do
-                {
-                    try
-                    {
-                        users = getUsersURLs(pageUrl, host, port);
-                    }
-                    catch (Exception e)
-                    {
-                        output.WriteLine(e.Message);
-                        System.Threading.Thread.Sleep(1000 * 60 * 5);
-                    }
-                } while (users == null);			
+                users = getUsersURLs(pageUrl, host, port);
 
 				bool stopProcessing = false;
                 for (int i = 0; i < users.Count; ++i)
                 {
-                    try
+					
+					string userID = getUserID(users[i]);
+                    output.Write("Processing user " + userID);
+
+                    List<Movie> movies = new List<Movie>();
+                    string userReviewsBaseURL = web + users[i] + "hodnoceni/";
+
+                    List<string> reviewsPagesURL = getReviewsPagesURLs(userReviewsBaseURL, host, port);
+                    foreach (string reviewsURL in reviewsPagesURL)
                     {
-						string userID = getUserID(users[i]);
-                        output.Write("Processing user " + userID);
-
-                        List<Film> movies = new List<Film>();
-                        string userReviewsBaseURL = web + users[i] + "hodnoceni/";
-
-                        List<string> reviewsPagesURL = getReviewsPagesURLs(userReviewsBaseURL, host, port);
-                        foreach (string reviewsURL in reviewsPagesURL)
-                        {
-                            getReviews(reviewsURL, movies, host, port);
-							output.Write('.');
-                        }
-						output.WriteLine(" finished.");
-						
-						/* ensure that the user reviewed at least 100 movies
-						 * otherwise stop processing since we process users by their reviews count */
-						if (movies.Count < 100)
-						{
-							stopProcessing = true;
-							break;
-						}
-
-						/* write results to file identified by userID */
-						string dataFile = "./data/" + userID + ".txt";
-                        StreamWriter writer = new StreamWriter(@dataFile);
-                        foreach (Film f in movies)
-                        {
-                            writer.WriteLine(f.get_vse());
-                        }
-                        writer.Close();
+                        getReviews(reviewsURL, movies, host, port);
+						output.Write('.');
                     }
-                    catch (Exception e)
+					output.WriteLine(" finished.");
+					
+					/* ensure that the user reviewed at least 100 movies
+					 * otherwise stop processing since we process users by their reviews count */
+					if (movies.Count < 100)
+					{
+						stopProcessing = true;
+						break;
+					}
+
+					/* write results to file identified by userID */
+					string dataFile = "./data/" + userID + ".txt";
+                    StreamWriter writer = new StreamWriter(@dataFile);
+                    foreach (Movie f in movies)
                     {
-                        output.WriteLine(e.Message);
-						//vyjimka byva zpusobena tim, ze me nepusti na server, zkus to za 5 min znovu
-                        System.Threading.Thread.Sleep(1000 * 60 * 5);
+                        writer.WriteLine(f.get_vse());
                     }
+                    writer.Close();
                 }
 
 				if (stopProcessing)
 				{
 					break;
 				}
-			}
+			}			
 		}
 		
-        private static List<string> getUsersURLs(string url,string prox,int por)
+        private List<string> getUsersURLs(string url, string host, int por)
         {
             HtmlWeb htmlWeb = new HtmlWeb();
             
-            // Creates an HtmlDocument object from an URL
-            HtmlDocument document;
-            if (prox.Length == 0)
-            {
-                document = htmlWeb.Load(url);
-            }
-            else
-            {
-                document = htmlWeb.Load(url, prox, por, "", "");
-            }            
+            /* Creates an HtmlDocument object from an URL */
+            HtmlDocument HtmlDoc = null;
+			do {
+				try {
+		            if (host.Length == 0)
+		            {
+		                HtmlDoc = htmlWeb.Load(url);
+		            }
+		            else
+		            {
+		                HtmlDoc = htmlWeb.Load(url, host, por, "", "");
+		            }            				
+				} catch (Exception ex) {
+					processException(ex);
+				}
+			} while (HtmlDoc == null);
 
-            // Targets a specific node
-            HtmlNode tabulka = document.DocumentNode.SelectSingleNode(@"//table[@class=""ui-table-list""]");
-            HtmlNodeCollection trs = tabulka.SelectNodes(@".//tr");
-            List<string> adresy = new List<string>();
-            foreach (HtmlNode n in trs)
+			/* Finds users with number of reviews higher than 100 and saves their profile URL */
+            HtmlNode usersTable = HtmlDoc.DocumentNode.SelectSingleNode(@"//table[@class=""ui-table-list""]");
+            HtmlNodeCollection trNodes = usersTable.SelectNodes(@".//tr");
+            List<string> usersURLs = new List<string>();
+            foreach (HtmlNode tr in trNodes)
             {
-                HtmlNodeCollection tds = n.SelectNodes(@".//td");
-                int pocet = vysekej_pocet(tds);
-                if (pocet >= 100)
+                HtmlNodeCollection tdNodes = tr.SelectNodes(@".//td");
+                int numReviews = getReviewCount(tdNodes);
+                if (numReviews >= 100)
                 {
-                    HtmlNode t = n.SelectSingleNode(@".//td[@class=""nick""]");
-                    HtmlNode a = t.SelectSingleNode(@".//a");
-                    string adresa = a.Attributes["href"].Value;
-                    adresy.Add(adresa);
+                    HtmlNode tdNickClass = tr.SelectSingleNode(@".//td[@class=""nick""]");
+                    HtmlNode anchor = tdNickClass.SelectSingleNode(@".//a");
+                    string userURL = anchor.Attributes["href"].Value;
+                    usersURLs.Add(userURL);
                 }
             }
-            return adresy;
+			
+            return usersURLs;
         }
+
+		//TODO DONE, only add some comments		
+		private void processException(Exception e)
+		{
+			output.WriteLine(e.Message);
+			//vyjimka byva zpusobena tim, ze me nepusti na server, zkus to za 5 min znovu
+			System.Threading.Thread.Sleep(1000 * 60 * 5);
+		}
 		
-        private static int vysekej_pocet(HtmlNodeCollection ns)
+		//TODO DONE, only add some comments
+        private static int getReviewCount(HtmlNodeCollection tdNodes)
         {
-            if (ns.Count > 3)
+            if (tdNodes.Count > 3)
             {
-                string s = ns[3].InnerText;
-                string[] ss = s.Split(' ');
-                s = ss[0];
+                string[] numReviewsParts = tdNodes[3].InnerText.Split(' ');
+                string numReviews = numReviewsParts[0];
                 try
                 {
-                    int p = Convert.ToInt32(s);
-                    return p;
+                    return Convert.ToInt32(numReviews);
                 }
                 catch
                 {
                     return 0;
                 }
-                
-            }
-            else
-            {
-                return 0;
-            }
-
+			}
+            // else
+            return 0;
         }
 
-        private static List<string> getReviewsPagesURLs(string url, string host, int port)
+		//TODO DONE, only add some comments
+        private List<string> getReviewsPagesURLs(string baseURL, string host, int port)
         {
             HtmlWeb htmlWeb = new HtmlWeb();
-
-            HtmlDocument document;
-            if (host.Length == 0)
+			HtmlDocument HtmlDoc = null;			
+			do {
+				try {
+		            if (host.Length == 0)
+		            {
+		                HtmlDoc = htmlWeb.Load(baseURL);
+		            }
+		            else
+		            {
+		                HtmlDoc = htmlWeb.Load(baseURL, host, port, "", "");
+		            }			
+				} catch (Exception ex) {
+					processException(ex);
+				}
+			} while (HtmlDoc == null);
+			
+			
+            HtmlNode paginatorDiv = HtmlDoc.DocumentNode.SelectSingleNode(@"//div[@class=""paginator text""]");
+            HtmlNodeCollection pagesAnchors = paginatorDiv.SelectNodes(@".//a");
+            List<string> pagesURLs = new List<string>();
+            HtmlNode lastPageAnchor = pagesAnchors[pagesAnchors.Count - 2];
+            string lastPageURL = lastPageAnchor.Attributes["href"].Value;
+            string lastPageNumber = lastPageURL.Split('-').Last();
+            lastPageNumber = lastPageNumber.Substring(0, lastPageNumber.Length - 1);
+            int pageCount = Convert.ToInt32(lastPageNumber);
+            for (int i = 1; i <= pageCount; ++i)
             {
-                document = htmlWeb.Load(url);
+                string pageURL = baseURL + "strana-" + i.ToString() + "/";
+                pagesURLs.Add(pageURL);
             }
-            else
-            {
-                document = htmlWeb.Load(url, host, port, "", "");
-            }
-            HtmlNode d = document.DocumentNode.SelectSingleNode(@"//div[@class=""paginator text""]");
-            HtmlNodeCollection stranky = d.SelectNodes(@".//a");
-            List<string> adresy = new List<string>();
-            HtmlNode n = stranky[stranky.Count - 2];
-            string adrlast = n.Attributes["href"].Value;
-            string[] ss = adrlast.Split('-');
-            string s = ss.Last();
-            s = s.Substring(0, s.Length - 1);
-            int posledni = Convert.ToInt32(s);
-            for (int i = 1; i <= posledni; ++i)
-            {
-                string adr = url + "strana-" + i.ToString() + "/";
-                adresy.Add(adr);
-            }
-            return adresy;
+            return pagesURLs;
         }
 
 		/*
 		 * userURL pattern: /uzivatel/121600-drsan40/
 		 */
+		//TODO DONE, only add some comments
 		private static string getUserID(string userURL)
 		{
 			string[] urlParts = userURL.Split('/');
 			return urlParts[2];		
 		}
 
-        private static void getReviews(string reviewsURL, List<Film> movies, string host, int port)
+        //TODO DONE, only add some comments
+		private void getReviews(string reviewsURL, List<Movie> movies, string host, int port)
         {
-
             HtmlWeb htmlWeb = new HtmlWeb();
-            HtmlDocument document;
-            if (host.Length == 0)
-            {
-                document = htmlWeb.Load(reviewsURL);
-            }
-            else
-            {
-                
-                document = htmlWeb.Load(reviewsURL, host, port, "", "");
-            }
-
+			HtmlDocument HtmlDoc = null;
+			do {
+				try {
+			        if (host.Length == 0)
+			        {
+			            HtmlDoc = htmlWeb.Load(reviewsURL);
+			        }
+			        else
+			        {
+			            HtmlDoc = htmlWeb.Load(reviewsURL, host, port, "", "");
+			        }
+				} catch (Exception ex) {
+					processException(ex);
+				}
+			} while (HtmlDoc == null);
 			
-            HtmlNode tabulka = document.DocumentNode.SelectSingleNode(@"//table[@class=""ui-table-list""]");
-            HtmlNodeCollection trs =  tabulka.SelectNodes(@".//tr");
-            for (int i = 0; i < trs.Count;i++ )
+            HtmlNode reviewsTable = HtmlDoc.DocumentNode.SelectSingleNode(@"//table[@class=""ui-table-list""]");
+            HtmlNodeCollection trNodes =  reviewsTable.SelectNodes(@".//tr");
+            for (int i = 0; i < trNodes.Count;i++ )
             {
-                HtmlNode n = trs[i];
+				///TODO: SKLIPEK 170(leva)*160*110*97
+                HtmlNode tr = trNodes[i];
                 
-                HtmlNode hodnoceni_n = n.SelectSingleNode(@".//*[@class=""rating""]");
-                if (hodnoceni_n == null)
+                HtmlNode ratingImg = tr.SelectSingleNode(@".//*[@class=""rating""]");
+                if (ratingImg == null)
                 {
                     continue;
                 }
-                int hodnoceni = vysekej_hodnoceni(hodnoceni_n);
-                HtmlNode odkaz_n = n.SelectSingleNode(@".//a[@class=""film c2""] | .//a[@class=""film c1""] | .//a[@class=""film c3""]");
-                if (odkaz_n == null)
+                int rating = getRating(ratingImg);
+                HtmlNode movieAnchor = tr.SelectSingleNode(@".//a[@class=""film c2""] | .//a[@class=""film c1""] | .//a[@class=""film c3""]");
+                if (movieAnchor == null)
                 {
                     continue;
                 }
-                string id = vysekej_id(odkaz_n);
-                string nazev = vysekej_nazev(odkaz_n);
-                HtmlNode rok_n = n.SelectSingleNode(@".//span[@class=""film-year""]");
-                if (rok_n == null)
+                string movieID = getMovieID(movieAnchor);
+                string movieName = getMovieName(movieAnchor);
+                HtmlNode movieYearSpan = tr.SelectSingleNode(@".//span[@class=""film-year""]");
+                if (movieYearSpan == null)
                 {
                     continue;
                 }
-                string rok = vysekej_rok(rok_n);
-                Film f = new Film(id, nazev, hodnoceni, rok);
-                movies.Add(f);
-            }          
-        }
-		
-        private static int vysekej_hodnoceni(HtmlNode n)
-        {
-            int hodn = 0;
-            if (n.Name == "img")
-            {
-                string hvezdy = n.Attributes["alt"].Value;
-                hodn = hvezdy.Length;
+                string movieYear = getMovieYear(movieYearSpan);
+                movies.Add(new Movie(movieID, movieName, rating, movieYear));
             }
-            return hodn;
         }
-        private static string vysekej_id(HtmlNode n)
+
+		//TODO DONE, only add some comments
+        private static int getRating(HtmlNode ratingImg)
         {
-            string odkaz = n.Attributes["href"].Value;
-            string[] casti = odkaz.Split('/');
-            if (casti.Length > 1)
+            int rating = 0;
+            if (ratingImg.Name == "img")
             {
-                string last = casti[casti.Length - 2];
-                string[] cs = last.Split('-');
-                if (cs.Length > 0)
+                string stars = ratingImg.Attributes["alt"].Value;
+                rating = stars.Length;
+            }
+            return rating;
+        }
+
+		//TODO DONE, only add some comments
+		private static string getMovieID(HtmlNode movieAnchor)
+        {
+            string movieUrl = movieAnchor.Attributes["href"].Value;
+            string[] UrlParts = movieUrl.Split('/');
+            if (UrlParts.Length > 1)
+            {
+                string lastPart = UrlParts[UrlParts.Length - 2];
+                string[] movieIDs = lastPart.Split('-');
+                if (movieIDs.Length > 0)
                 {
-                    string id = cs[0];
-                    return id;
+                    return movieIDs[0];
                 }
                 else
                 {
-                    return "nic";
+                    return "n/a";
                 }
             }
             else
             {
-                return "nic";
+                return "n/a";
             }
         }
 
-        private static string vysekej_nazev(HtmlNode n)
+		//TODO DONE, only add some comments
+		private static string getMovieName(HtmlNode movieAnchor)
         {
-            return n.InnerText;
+            return movieAnchor.InnerText;
             
         }
-        private static string vysekej_rok(HtmlNode n)
+		
+		//TODO DONE, only add some comments
+        private static string getMovieYear(HtmlNode movieYearSpan)
         {
-            string r = n.InnerText;
-            r = r.Trim();
-          //  r = r.Substring(1, r.Length - 2);
-            return r;
+            string movieYear = movieYearSpan.InnerText;
+            movieYear = movieYear.Trim();
+          	// movieYear = movieYear.Substring(1, movieYear.Length - 2);
+            return movieYear;
         }
 
+	}
+
+    class Program
+    {
+        static void Main(string[] args)
+        {
+			if (!File.Exists("./data/"))
+			{
+				System.IO.Directory.CreateDirectory("./data/");
+			}
+			Parser csfdParser = new Parser();
+			csfdParser.parse();
+		}		
     }
+	
 }
