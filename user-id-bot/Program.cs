@@ -94,12 +94,15 @@ namespace user_id_bot
 				{
                 	pageUrl = web + "/uzivatele/prehled/podle-rating/strana-" + page.ToString() + "/";
 				}
+		output.WriteLine();
                 output.WriteLine("Processing page " + page.ToString() + ".");
+		output.WriteLine("------------------------------------------------------------------------------");
 				
                 List<string> users = null;
                 users = getUsersURLs(pageUrl, host, port);
 
 				bool stopProcessing = false;
+				int failedCount = 0;
                 for (int i = 0; i < users.Count; ++i)
                 {
 					
@@ -115,24 +118,33 @@ namespace user_id_bot
                         getReviews(reviewsURL, movies, host, port);
 						output.Write('.');
                     }
-					output.WriteLine(" finished.");
 					
 					/* ensure that the user reviewed at least 100 movies
 					 * otherwise stop processing since we process users by their reviews count */
 					if (movies.Count < 100)
 					{
-						stopProcessing = true;
-						break;
+						failedCount++;
+						output.WriteLine("user has only " + movies.Count.ToString() + " reviews.\n!");
+						output.WriteLine(failedCount.ToString() + ". user with low review count!");
+						if (failedCount >= 100)
+						{
+							output.WriteLine("Too many users with low reviews count, breaking now.");
+							stopProcessing = true;
+							break;
+						}
 					}
-
-					/* write results to file identified by userID */
-					string dataFile = "./data/" + userID + ".txt";
-                    StreamWriter writer = new StreamWriter(@dataFile);
-                    foreach (Movie f in movies)
-                    {
-                        writer.WriteLine(f.get_vse());
-                    }
-                    writer.Close();
+					else
+					{
+						/* write results to file identified by userID */
+						string dataFile = "./data/" + userID + ".txt";
+                				StreamWriter writer = new StreamWriter(@dataFile);
+				                foreach (Movie f in movies)
+				                {
+				                        writer.WriteLine(f.get_vse());
+				                }
+                    				writer.Close();
+						output.WriteLine(" finished with " + movies.Count.ToString() + " saved reviews.");
+					}
                 }
 
 				if (stopProcessing)
