@@ -55,4 +55,9 @@
   <Target Name="AfterBuild">
   </Target>
   -->
+  <ItemGroup>
+    <None Include="HtmlAgilityPack.xml">
+      <Visible>False</Visible>
+    </None>
+  </ItemGroup>
 </Project>

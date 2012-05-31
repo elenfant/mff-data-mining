@@ -82,7 +82,7 @@ namespace user_id_bot
 		
 		public void parse()
 		{
-			/* parse users until number of their ratings drop below 100 */
+			/* parse users until number of their ratings drop to 100 or below */
 			for (int page = 1; /* condition intentionally left empty */ ; page++)
 			{
 				string pageUrl;
@@ -119,9 +119,9 @@ namespace user_id_bot
 						output.Write('.');
                     }
 					
-					/* ensure that the user reviewed at least 100 movies
+					/* ensure that the user reviewed more than 100 movies
 					 * otherwise stop processing since we process users by their reviews count */
-					if (movies.Count < 100)
+					if (movies.Count <= 100)
 					{
 						failedCount++;
 						output.WriteLine("user has only " + movies.Count.ToString() + " reviews.\n!");
@@ -183,7 +183,7 @@ namespace user_id_bot
             {
                 HtmlNodeCollection tdNodes = tr.SelectNodes(@".//td");
                 int numReviews = getReviewCount(tdNodes);
-                if (numReviews >= 100)
+                if (numReviews > 100)
                 {
                     HtmlNode tdNickClass = tr.SelectSingleNode(@".//td[@class=""nick""]");
                     HtmlNode anchor = tdNickClass.SelectSingleNode(@".//a");
