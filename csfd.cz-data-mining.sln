@@ -3,6 +3,8 @@ Microsoft Visual Studio Solution File, Format Version 11.00
 # Visual Studio 2010
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "user-id-bot", "user-id-bot\user-id-bot.csproj", "{CA99583F-2F48-4B73-8EF8-A3D8557841CF}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "mba", "mba\mba.csproj", "{844999BA-76BC-49B3-B882-4FDF10725F73}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x86 = Debug|x86
@@ -13,11 +15,15 @@ Global
 		{CA99583F-2F48-4B73-8EF8-A3D8557841CF}.Debug|x86.Build.0 = Debug|x86
 		{CA99583F-2F48-4B73-8EF8-A3D8557841CF}.Release|x86.ActiveCfg = Release|x86
 		{CA99583F-2F48-4B73-8EF8-A3D8557841CF}.Release|x86.Build.0 = Release|x86
-	EndGlobalSection
-	GlobalSection(MonoDevelopProperties) = preSolution
-		StartupItem = user-id-bot\user-id-bot.csproj
+		{844999BA-76BC-49B3-B882-4FDF10725F73}.Debug|x86.ActiveCfg = Debug|x86
+		{844999BA-76BC-49B3-B882-4FDF10725F73}.Debug|x86.Build.0 = Debug|x86
+		{844999BA-76BC-49B3-B882-4FDF10725F73}.Release|x86.ActiveCfg = Release|x86
+		{844999BA-76BC-49B3-B882-4FDF10725F73}.Release|x86.Build.0 = Release|x86
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(MonoDevelopProperties) = preSolution
+		StartupItem = user-id-bot\user-id-bot.csproj
 	EndGlobalSection
 EndGlobal
