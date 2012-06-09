@@ -14,12 +14,127 @@ namespace mba
         const string path4 = "ratings/number_of.txt";
         const string path5 = "ratings/all.txt";
         const string path6 = "ratings/averages50.txt";
-        const string path7 = "ratings/best10.txt";
+        const string path7 = "../../../../vysledky/best10.txt";
         const string path8 = "ratings/best25.txt";
-        const string path9 = "ratings/best25_50.txt";
+        const string path9 = "../../../../vysledky/best25_50.txt";
         const string path10 = "data/";
 
-        
+        class MBARule
+        {
+            public double value;   // zlepseni nebo spolehlivost
+            public int conditionalMovieID;
+            public int effectMovieID;
+
+            public MBARule(double value, int condMovieID, int effMovieID)
+            {
+                this.value = value;
+                this.conditionalMovieID = condMovieID;
+                this.effectMovieID = effMovieID;
+            }
+        }
+
+        private static void writeRules(List<MBARule> rules, StreamWriter writer, Dictionary<int, string> movie_names)
+        {
+            double avg = 0;
+            long count = 0;
+            foreach (MBARule rule in rules)
+            {
+                avg += rule.value;
+                count++;
+                string line = Math.Round(rule.value, 2).ToString() + "\t" + rule.conditionalMovieID.ToString() + "(" + movie_names[rule.conditionalMovieID] + ")\t==>\t" + rule.effectMovieID.ToString() + "(" + movie_names[rule.effectMovieID] + ")";
+                writer.WriteLine(line);
+            }
+            writer.WriteLine("\nAverage value: " + avg/count);
+            writer.WriteLine("Median value: " + rules[rules.Count/2].value);
+        }
+
+        private static Dictionary<int, int> countEffectMovies(List<MBARule> rules)
+        {
+
+            Dictionary<int, int> effMovies = new Dictionary<int, int>();
+            foreach (var rule in rules)
+            {
+                if (effMovies.ContainsKey(rule.effectMovieID))
+                {
+                    effMovies[rule.effectMovieID]++;
+                }
+                else
+                {
+                    effMovies.Add(rule.effectMovieID, 1);
+                }
+            }
+            return effMovies;
+        }
+
+        private static void writeAttractors(Dictionary<int, int> attractors, StreamWriter writer, Dictionary<int, string> movie_names)
+        {
+            double avg = 0;
+            long count = 0;
+            var attractorsList = attractors.ToList();
+            attractorsList.Sort((attA, attB) => attB.Value.CompareTo(attA.Value));
+
+            foreach (var attractor in attractorsList)
+            {
+                avg += attractor.Value;
+                count++;
+                string line = attractor.Key.ToString() + "\t(" + movie_names[attractor.Key] + ")\t" + attractor.Value.ToString();
+                writer.WriteLine(line);
+            }
+            writer.WriteLine("\nAverage value: " + avg / count);
+            writer.WriteLine("Median value: " + attractorsList[attractorsList.Count / 2].Value);
+        }
+
+        private static List<MBARule> sortComb(string inputPath)
+        {
+            List<MBARule> rules = new List<MBARule>();
+            StreamReader reader = new StreamReader(inputPath);
+            while (!reader.EndOfStream)
+            {
+                string line = reader.ReadLine();
+                string[] pieces = line.Split(new string[1] { ";;" }, System.StringSplitOptions.None);
+                if (pieces.Length == 7)
+                {
+                    int condMovieID = Convert.ToInt32(pieces[0].Trim());
+                    double comb = Convert.ToDouble(pieces[5].Trim()) * Convert.ToDouble(pieces[6].Trim());
+
+                    string[] effPieces = pieces[2].Split(new string[1] { "==>" }, System.StringSplitOptions.None);
+                    if (effPieces.Length == 2)
+                    {
+                        int effMovieID = Convert.ToInt32(effPieces[1].Trim());
+                        rules.Add(new MBARule(comb, condMovieID, effMovieID));
+                    }
+                }
+            }
+            rules.Sort((ruleA, ruleB) => ruleB.value.CompareTo(ruleA.value));
+            return rules;
+        }
+
+        private static List<MBARule> sortImp(string inputPath)
+        {
+            List<MBARule> rules = new List<MBARule>();
+            StreamReader reader = new StreamReader(inputPath);
+            while (!reader.EndOfStream)
+            {
+                string line = reader.ReadLine();
+                string[] pieces = line.Split(new string[1] { ";;" }, System.StringSplitOptions.None);
+                if (pieces.Length == 7)
+                {
+                    int condMovieID = Convert.ToInt32(pieces[0].Trim());
+                    double improvement = Convert.ToDouble(pieces[6].Trim());
+
+                    string[] effPieces = pieces[2].Split(new string[1] { "==>" }, System.StringSplitOptions.None);
+                    if (effPieces.Length == 2)
+                    {
+                        int effMovieID = Convert.ToInt32(effPieces[1].Trim());
+                        rules.Add(new MBARule(improvement, condMovieID, effMovieID));
+                    }
+                }
+            }
+            rules.Sort((ruleA, ruleB) => ruleB.value.CompareTo(ruleA.value));
+            return rules;
+        }
+
+
         static void Main(string[] args)
         {
             Dictionary<int, string> movie_names = new Dictionary<int, string>();
@@ -31,11 +146,24 @@ namespace mba
             Dictionary<int, double> avgs = new Dictionary<int, double>();
             const string path_out = "ratings/best25_50.txt";
 
+           
 
 
             ReadFile_T1(path7, movie_names, numbers);
             Dictionary<int, int> cond_ids = Read_ids2(path7);
             Dictionary<int, int> effect_ids = Read_ids2(path9);
+
+            //List<MBARule> sortedCombRules = sortComb("../../../../vysledky/best_comb.txt");
+            //StreamWriter sortedCombWriter = new StreamWriter("../../../../vysledky/myratings/pravidla_zlepseni_015.txt");
+            //writeRules(sortedCombRules, sortedCombWriter, movie_names);
+            //sortedCombWriter.Close();
+
+            List<MBARule> sortedCombRules = sortImp("../../../../vysledky/best_imp_015.txt");
+            StreamWriter sortedCombWriter = new StreamWriter("../../../../vysledky/myratings/pravidla_zlepseni_015.txt");
+            writeRules(sortedCombRules, sortedCombWriter, movie_names);
+            sortedCombWriter.Close();
+
+            
             const int conds = 22000;
             const int effects = 13000;
             const int trans = 78922;
@@ -43,32 +171,62 @@ namespace mba
             int[] num_of_c = get_num_of(path7, conds);
             int[] num_of_e = get_num_of(path9, effects);
 
-            StreamWriter writer_r = new StreamWriter("ratings/best_rel.txt");
-            StreamWriter writer_i = new StreamWriter("ratings/best_imp.txt");
-            StreamWriter writer_c = new StreamWriter("ratings/best_comb.txt");
-            
-            StreamWriter writer_i025 = new StreamWriter("ratings/best_imp_025.txt");
+            StreamWriter writer_r = new StreamWriter("../../../../vysledky/myratings/best_rel.txt");
+            StreamWriter writer_i = new StreamWriter("../../../../vysledky/myratings/best_imp.txt");
+            StreamWriter writer_c = new StreamWriter("../../../../vysledky/myratings/best_comb.txt");
 
+            StreamWriter writer_i025 = new StreamWriter("../../../../vysledky/myratings/best_imp_025.txt");
 
-            for (int i = 0; i < conds; ++i)
-            {
-                string path = "frequences/ft-L" + i.ToString()+".txt";
-                if (File.Exists(path))
-                {
-                    int[] f_line = get_freq_line(path, effects);
+            List<MBARule> improvementBasedRules = new List<MBARule>();
+            List<MBARule> reliabilityBasedRules = new List<MBARule>();
 
-                    choose_best(f_line, num_of_c, num_of_e, trans, i, writer_r, writer_i,writer_i025,writer_c,
-                        movie_names, cond_ids, effect_ids);
-                    if (i % 100 == 0)
-                    {
-                        Console.WriteLine(path);
-                    }
-                }
-            }
+            //for (int i = 0; i < conds; ++i)
+            //{
+            //    string path = "../../../../vysledky/frequences/ft-L" + i.ToString() + ".txt";
+            //    if (File.Exists(path))
+            //    {
+            //        int[] f_line = get_freq_line(path, effects);
+
+            //        choose_best(f_line, num_of_c, num_of_e, trans, i, writer_r, writer_i,writer_i025,writer_c,
+            //            movie_names, cond_ids, effect_ids, improvementBasedRules, reliabilityBasedRules);
+            //        if (i % 100 == 0)
+            //        {
+            //            Console.WriteLine(path);
+            //        }
+            //    }
+            //}
 
             writer_i.Close();
             writer_r.Close();
 
+
+            //reliabilityBasedRules.Sort((ruleA, ruleB) => ruleB.value.CompareTo(ruleA.value));
+            //StreamWriter reliabilityBasedRulesWriter = new StreamWriter("../../../../vysledky/myratings/pravidla_spolehlivosti.txt");
+            //writeRules(reliabilityBasedRules, reliabilityBasedRulesWriter, movie_names);
+            //reliabilityBasedRulesWriter.Close();
+
+            //improvementBasedRules.Sort((ruleA, ruleB) => ruleB.value.CompareTo(ruleA.value));
+            //StreamWriter improvementBasedWriter = new StreamWriter("../../../../vysledky/myratings/pravidla_zlepseni.txt");
+            //writeRules(improvementBasedRules, improvementBasedWriter, movie_names);
+            //improvementBasedWriter.Close();
+
+
+            // compute attractors amongst effectors films
+            //Dictionary<int, int> reliabilityAttractors = countEffectMovies(reliabilityBasedRules);
+            //StreamWriter reliabilityAttractorsWriter = new StreamWriter("../../../../vysledky/myratings/atraktory_spolehlivosti.txt");
+            //writeAttractors(reliabilityAttractors, reliabilityAttractorsWriter, movie_names);
+            //reliabilityAttractorsWriter.Close();
+
+            //Dictionary<int, int> improvementAttractors = countEffectMovies(improvementBasedRules);
+            //StreamWriter improvementAttractorsWriter = new StreamWriter("../../../../vysledky/myratings/atraktory_zlepseni.txt");
+            //writeAttractors(improvementAttractors, improvementAttractorsWriter, movie_names);
+            //improvementAttractorsWriter.Close();
+
+            // compute attractors amongst effectors films
+            Dictionary<int, int> combAttractors = countEffectMovies(sortedCombRules);
+            StreamWriter combAttractorsWriter = new StreamWriter("../../../../vysledky/myratings/atraktory_imp_015.txt");
+            writeAttractors(combAttractors, combAttractorsWriter, movie_names);
+            combAttractorsWriter.Close();
 
 
       /*      int[,] frequences = new int[conds, effects];
@@ -90,7 +248,7 @@ namespace mba
 
          //   int[,] test = new int [13600,21800];
 
-           // string path = path1 + "uziv-1000.txt";
+           // string inputPath = path1 + "uziv-1000.txt";
         string[] all_files = Directory.GetFiles(path1);
             
             int i = 1;
@@ -135,8 +293,8 @@ namespace mba
 
         //vybere nejlepsi pravidlo pro film
         static void choose_best(int[] f_line, int[] num_of_c, int[] num_of_e, int trans, int l,
-            StreamWriter writer_r, StreamWriter writer_i, StreamWriter writer_i025, StreamWriter writer_c,  
-            Dictionary<int, string> movie_names, Dictionary<int, int> cond_ids, Dictionary<int, int> effect_ids)
+            StreamWriter writer_r, StreamWriter writer_i, StreamWriter writer_i025, StreamWriter writer_c,
+            Dictionary<int, string> movie_names, Dictionary<int, int> cond_ids, Dictionary<int, int> effect_ids, List<MBARule> zlepseni, List<MBARule> spolehlivosti)
         {
             if (cond_ids.ContainsKey(l))
             {
@@ -198,27 +356,31 @@ namespace mba
                 {
                     max_i025_id = max_i_id;
                 }
-                
 
 
-                string line_r = cond_ids[l].ToString() + "\t;;\t" + movie_names[cond_ids[l]] + "\t;;\t" + "==>\t" + effect_ids[max_r_id].ToString() + "\t;;\t" + movie_names[effect_ids[max_r_id]] + "\t;;\t" +
-                    Math.Round(supports[max_r_id], 2).ToString() + "\t;;\t" + Math.Round(reliabilities[max_r_id], 2).ToString() + "\t;;\t" + Math.Round(improvements[max_r_id], 2).ToString();
 
-                writer_r.WriteLine(line_r);
+                //string line_r = cond_ids[l].ToString() + "\t;;\t" + movie_names[cond_ids[l]] + "\t;;\t" + "==>\t" + effect_ids[max_r_id].ToString() + "\t;;\t" + movie_names[effect_ids[max_r_id]] + "\t;;\t" +
+                //    Math.Round(supports[max_r_id], 2).ToString() + "\t;;\t" + Math.Round(reliabilities[max_r_id], 2).ToString() + "\t;;\t" + Math.Round(improvements[max_r_id], 2).ToString();
 
-                string line_i = cond_ids[l].ToString() + "\t;;\t" + movie_names[cond_ids[l]] + "\t;;\t" + "==>\t" + effect_ids[max_i_id].ToString() + "\t;;\t" + movie_names[effect_ids[max_i_id]] + "\t;;\t" +
-                    Math.Round(supports[max_i_id], 2).ToString() + "\t;;\t" + Math.Round(reliabilities[max_i_id], 2).ToString() + "\t;;\t" + Math.Round(improvements[max_i_id], 2).ToString();
-                writer_i.WriteLine(line_i);
+                //writer_r.WriteLine(line_r);
 
-                
+                //string line_i = cond_ids[l].ToString() + "\t;;\t" + movie_names[cond_ids[l]] + "\t;;\t" + "==>\t" + effect_ids[max_i_id].ToString() + "\t;;\t" + movie_names[effect_ids[max_i_id]] + "\t;;\t" +
+                //    Math.Round(supports[max_i_id], 2).ToString() + "\t;;\t" + Math.Round(reliabilities[max_i_id], 2).ToString() + "\t;;\t" + Math.Round(improvements[max_i_id], 2).ToString();
+                //writer_i.WriteLine(line_i);
 
-                string line_i025 = cond_ids[l].ToString() + "\t;;\t" + movie_names[cond_ids[l]] + "\t;;\t" + "==>\t" + effect_ids[max_i025_id].ToString() + "\t;;\t" + movie_names[effect_ids[max_i025_id]] + "\t;;\t" +
-                    Math.Round(supports[max_i025_id], 2).ToString() + "\t;;\t" + Math.Round(reliabilities[max_i025_id], 2).ToString() + "\t;;\t" + Math.Round(improvements[max_i025_id], 2).ToString();
-                writer_i025.WriteLine(line_i025);
 
-                string line_c = cond_ids[l].ToString() + "\t;;\t" + movie_names[cond_ids[l]] + "\t;;\t" + "==>\t" + effect_ids[max_comb_id].ToString() + "\t;;\t" + movie_names[effect_ids[max_comb_id]] + "\t;;\t" +
-                    Math.Round(supports[max_comb_id], 2).ToString() + "\t;;\t" + Math.Round(reliabilities[max_comb_id], 2).ToString() + "\t;;\t" + Math.Round(improvements[max_comb_id], 2).ToString();
-                writer_c.WriteLine(line_c);
+
+                //string line_i025 = cond_ids[l].ToString() + "\t;;\t" + movie_names[cond_ids[l]] + "\t;;\t" + "==>\t" + effect_ids[max_i025_id].ToString() + "\t;;\t" + movie_names[effect_ids[max_i025_id]] + "\t;;\t" +
+                //    Math.Round(supports[max_i025_id], 2).ToString() + "\t;;\t" + Math.Round(reliabilities[max_i025_id], 2).ToString() + "\t;;\t" + Math.Round(improvements[max_i025_id], 2).ToString();
+                //writer_i025.WriteLine(line_i025);
+
+                //string line_c = cond_ids[l].ToString() + "\t;;\t" + movie_names[cond_ids[l]] + "\t;;\t" + "==>\t" + effect_ids[max_comb_id].ToString() + "\t;;\t" + movie_names[effect_ids[max_comb_id]] + "\t;;\t" +
+                //    Math.Round(supports[max_comb_id], 2).ToString() + "\t;;\t" + Math.Round(reliabilities[max_comb_id], 2).ToString() + "\t;;\t" + Math.Round(improvements[max_comb_id], 2).ToString();
+                //writer_c.WriteLine(line_c);
+
+                zlepseni.Add(new MBARule(improvements[max_i_id], cond_ids[l], effect_ids[max_i_id]));
+
+                spolehlivosti.Add(new MBARule(reliabilities[max_r_id], cond_ids[l], effect_ids[max_r_id]));
 
             }
         }
