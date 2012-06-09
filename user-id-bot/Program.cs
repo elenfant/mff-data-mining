@@ -58,7 +58,9 @@ namespace user_id_bot
         string host = "";
         int port = 0;
 		TextWriter output = System.Console.Out;
-		
+        
+        ulong requestCount = 0;
+	
 		/* get the last accessed user and page */
 		//TODO: get the last accessed user and page, from file
 
@@ -160,6 +162,7 @@ namespace user_id_bot
             
             /* Creates an HtmlDocument object from an URL */
             HtmlDocument HtmlDoc = null;
+            int attempts = 0;
 			do {
 				try {
 		            if (host.Length == 0)
@@ -169,11 +172,15 @@ namespace user_id_bot
 		            else
 		            {
 		                HtmlDoc = htmlWeb.Load(url, host, por, "", "");
-		            }            				
+		            }
 				} catch (Exception ex) {
 					processException(ex);
-				}
+                    attempts++;
+                }
 			} while (HtmlDoc == null);
+            requestCount++;
+            if (attempts > 0)
+                System.Console.WriteLine("Minut od posledniho uspesneho requestu" + attempts.ToString());
 
 			/* Finds users with number of reviews higher than 100 and saves their profile URL */
             HtmlNode usersTable = HtmlDoc.DocumentNode.SelectSingleNode(@"//table[@class=""ui-table-list""]");
@@ -198,9 +205,9 @@ namespace user_id_bot
 		//TODO DONE, only add some comments		
 		private void processException(Exception e)
 		{
-			output.WriteLine(e.Message);
-			//vyjimka byva zpusobena tim, ze me nepusti na server, zkus to za 5 min znovu
-			System.Threading.Thread.Sleep(1000 * 60 * 5);
+			output.WriteLine("Current request count: " + requestCount.ToString() + "\t Exception: " + e.Message);
+			//vyjimka byva zpusobena tim, ze me nepusti na server, zkus to za minutu znovu
+			System.Threading.Thread.Sleep(1000 * 60);
 		}
 		
 		//TODO DONE, only add some comments
@@ -227,8 +234,10 @@ namespace user_id_bot
         private List<string> getReviewsPagesURLs(string baseURL, string host, int port)
         {
             HtmlWeb htmlWeb = new HtmlWeb();
-			HtmlDocument HtmlDoc = null;			
-			do {
+			HtmlDocument HtmlDoc = null;
+            int attempts = 0; 
+            do
+            {
 				try {
 		            if (host.Length == 0)
 		            {
@@ -240,9 +249,13 @@ namespace user_id_bot
 		            }			
 				} catch (Exception ex) {
 					processException(ex);
+                    attempts++;
 				}
 			} while (HtmlDoc == null);
-			
+            requestCount++;
+            if (attempts > 0)
+                System.Console.WriteLine("Minut od posledniho uspesneho requestu" + attempts.ToString());
+
 			
             HtmlNode paginatorDiv = HtmlDoc.DocumentNode.SelectSingleNode(@"//div[@class=""paginator text""]");
             HtmlNodeCollection pagesAnchors = paginatorDiv.SelectNodes(@".//a");
@@ -275,7 +288,9 @@ namespace user_id_bot
         {
             HtmlWeb htmlWeb = new HtmlWeb();
 			HtmlDocument HtmlDoc = null;
-			do {
+            int attempts = 0; 
+            do
+            {
 				try {
 			        if (host.Length == 0)
 			        {
@@ -287,9 +302,13 @@ namespace user_id_bot
 			        }
 				} catch (Exception ex) {
 					processException(ex);
+                    attempts++;
 				}
 			} while (HtmlDoc == null);
-			
+            requestCount++;
+            if (attempts > 0)
+                System.Console.WriteLine("Minut od posledniho uspesneho requestu" + attempts.ToString());
+
             HtmlNode reviewsTable = HtmlDoc.DocumentNode.SelectSingleNode(@"//table[@class=""ui-table-list""]");
             HtmlNodeCollection trNodes =  reviewsTable.SelectNodes(@".//tr");
             for (int i = 0; i < trNodes.Count;i++ )
